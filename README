@@ -1,0 +1,5 @@
+To tokenize a review in place:
+bash tokenizeReview.bash [filename]
+
+To classify a review using a language model:
+bash classifyReview.bash [filename], outputs a file [filename]-class containing t or d
