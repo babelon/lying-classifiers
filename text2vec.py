@@ -1,4 +1,5 @@
 import sys
+import cPickle as pickle
 from tok import Tokenizer
 
 class Vectors:
@@ -14,8 +15,11 @@ class Vectors:
         self.features = []
         self.tok = Tokenizer()
 
+    def addDocFile(self, filename):
+        docString = open(filename).read()
+        self.addDoc(filename,docString)
+
     def addDoc(self, docName, docString):
-        # Initially doc is a string.
         doc = document(docName, self.tok.tokenize(docString)) # produces a list of tokens
         self.docs[docName] = doc
         self.addFeatures(doc)
@@ -31,7 +35,7 @@ class Vectors:
         for i in xrange(len(self.features)):
             f = self.features[i]
             if f in doc.getFeatureSet():
-                s += str(i)
+                s += str(i+1)
                 s += ":"
                 s += str(doc.getFeatureValue(f))
                 s += " "
@@ -49,6 +53,25 @@ class Vectors:
     def printFeatures(self):
         for i in xrange(len(self.features)):
             print self.features[i]
+
+    def saveFeatures(self):
+        saveFile = open('dat.features','w')
+        pickle.dump(self.features,saveFile)
+        saveFile.close()
+
+    def loadFeatures(self, filename):
+        readFile = open(filename)
+        self.features = pickle.load(readFile)
+        readFile.close()
+
+    def convertString(self, string, name='noName'):
+        # Convert a string to a vector without adding it to the representation.
+        print self.vectorString(document(name, self.tok.tokenize(string)))
+
+    def convertFile(self, filename):
+        docString = open(filename).read()
+        self.convertString(docString,name=filename)
+        
             
 class document:
     # A document representation:
