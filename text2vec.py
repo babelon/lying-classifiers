@@ -6,13 +6,13 @@ class Vectors:
     # A set of text docs and an ordered list of features
     # for describing those docs. 
     # A doc is a set of features.
-    # Includes method for producing a vector of a given
-    # doc,
+    # Includes method for producing a vector of a given doc,
     # and for adding a doc and its features to the class.
 
     def __init__(self):
         self.docs = dict()
-        self.features = []
+        self.features = dict()
+        self.featureIndex = 1
         self.tok = Tokenizer()
 
     def addDocFile(self, filename):
@@ -27,18 +27,43 @@ class Vectors:
     def addFeatures(self, doc):
         for f in doc.getFeatureSet():
             if f not in self.features:
-                self.features.append(f)
+                self.features[f] = self.featureIndex
+                self.featureIndex += 1
+
+    def reverseDict(self, m):
+        return dict((v,k) for k,v in map.iteritems())
+        
+    def qsort(self, l):
+        """
+        Quicksort using list comprehensions
+        >>> qsort1<<docstring test numeric input>>
+        <<docstring test numeric output>>
+        >>> qsort1<<docstring test string input>>
+        <<docstring test string output>>
+        """
+        if l == []: 
+            return []
+        else:
+            pivot = l[0]
+            lesser = self.qsort([x for x in l[1:] if x < pivot])
+            greater = self.qsort([x for x in l[1:] if x >= pivot])
+            return lesser + [pivot] + greater
         
 
     def vectorString(self, doc):
         s = ""
-        for i in xrange(len(self.features)):
-            f = self.features[i]
-            if f in doc.getFeatureSet():
-                s += str(i+1)
-                s += ":"
-                s += str(doc.getFeatureValue(f))
-                s += " "
+        docFeatureIndices = []
+        docFeatureValues = dict()
+        for f in doc.getFeatureSet():
+            if f in self.features:
+                docFeatureIndices.append(self.features[f])
+                docFeatureValues[self.features[f]] = doc.getFeatureValue(f)
+
+        for i in self.qsort(docFeatureIndices):
+            s += str(i)
+            s += ":"
+            s += str(docFeatureValues[i])
+            s += " "
         s += "# "
         s += str(doc.name)
         return s
@@ -51,8 +76,8 @@ class Vectors:
             self.printVector(docName)
 
     def printFeatures(self):
-        for i in xrange(len(self.features)):
-            print self.features[i]
+        for f in self.features:
+            print self.features[f]
 
     def saveFeatures(self):
         saveFile = open('dat.features','w')
@@ -75,8 +100,8 @@ class Vectors:
             
 class document:
     # A document representation:
-    # A name
-    # Consists of a dictionary of features and their values.
+    # 1. A name
+    # 2. a dictionary of features and their values.
     def __init__(self, docName, docTokens):
         self.name = docName
         self.features = dict() #features->floats
@@ -84,17 +109,21 @@ class document:
         self.addFeatures(self.grams(docTokens,2))
         self.addFeatures(self.grams(docTokens,3))
 
+
     def getFeatureValue(self, feature):
         if feature in self.features:
             return self.features[feature]
         else: 
             return NULL
 
+
     def getFeatures(self):
         return self.features
 
+
     def getFeatureSet(self):
         return self.features.keys()
+
         
     def addFeatures(self, features):
         for f in features:
