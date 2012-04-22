@@ -1,3 +1,5 @@
+Files involved in replicating Ott et al. (2011)
+
 To tokenize a review in place:
 bash tokenizeReview.bash [filename]
 
