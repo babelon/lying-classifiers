@@ -1,6 +1,6 @@
 import sys
 import os
-import validateSVM
+import SVMTrainTest
 import produceVectors
 
 # Main  
@@ -8,15 +8,16 @@ howManyFolds = int(sys.argv[2])
 pathname = sys.argv[1]
 if not pathname[-1] == '/':
     pathname += '/'
+params = dict()
 
 ###### CONVERT FILES TO FEATURE VECTORS ######                                                               
 outdir = 'vectors/'
-produceVectors.makeVectorsFromFiles(pathname, outdir)
+produceVectors.makeVectorsFromFiles(pathname, outdir, **params)
 
 ###### TRAIN & TEST AN SVM #####                                                                             
 pathname = outdir
 files = os.listdir(pathname)
-vectors = [validateSVM.readVectorFile(pathname+f) for f in files]
-results = validateSVM.kFoldTrainAndTest(vectors, howManyFolds)
+vectors = [SVMTrainTest.readVectorFile(pathname+f) for f in files]
+results = SVMTrainTest.kFoldTrainAndTest(vectors, howManyFolds)
 
-validateSVM.printSummary(results)
+SVMTrainTest.printSummary(results)

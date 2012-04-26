@@ -2,8 +2,8 @@ import sys
 import os
 from text2vec import Vectors
 
-def makeVectorsFromFiles(pathname, outdir,**kwargs):
-    v = Vectors(ngramOrder=2)
+def makeVectorsFromFiles(pathname, outdir, **params):
+    v = Vectors(**params)
     for docName in os.listdir(pathname):
     #print "Adding document " + docName
         docFile = open(pathname+docName,'r')
