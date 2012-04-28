@@ -1,4 +1,5 @@
 import sys
+import re
 import cPickle as pickle
 from tok import Tokenizer #insert your favorite tokenizer here
 
@@ -16,12 +17,19 @@ class Vectors:
         self.tok = Tokenizer()
 
         self.params = dict()
+        # defaults
         self.params['ngramOrder'] = 3
-        self.params['posCat'] = '\d_'
-        self.params['negCat'] = '\t_'
+        self.params['posCat'] = '^d_'
+        self.params['negCat'] = '^t_'
+
+        # read user-specified args
         for arg in kwargs:
             self.params[arg] = kwargs[arg]
 
+        # compile regexes
+        self.posCatRegex = re.compile(self.params['posCat'])
+        self.negCatRegex = re.compile(self.params['negCat'])
+        
 
     def addDocFile(self, filename):
         docString = open(filename).read()
@@ -68,7 +76,14 @@ class Vectors:
             s += " "
         s += "# "
         s += str(doc.name)
-        return s
+
+        if self.posCatRegex.match(doc.name):
+            return '1 ' + s
+        if self.negCatRegex.match(doc.name):
+            return '-1 ' + s
+
+        print "Error! " + doc.name + " could not be classified as pos or neg!"
+        return ''
 
 
     def vectorList(self, doc):
@@ -85,20 +100,18 @@ class Vectors:
 
     def pysvmVector(self, doc):
         vector = self.vectorList(doc) # an ordered list of (feature,value) tuples
-        tVector = ()
-        if self.params['posCat'] in doc.name:
-            tVector = (1,vector)
-        if self.params['negCat'] in doc.name:
-            tVector = (-1,vector)
-        return tVector
+        if self.posCatRegex.match(doc.name):
+            return (doc.name,1,vector)
+        if self.negCatRegex.match(doc.name):
+            return (doc.name,-1,vector)
+        print "Error! Could not classify " + doc.name
+        return ()
 
     def allPysvmVectors(self):
-        names = []
         vectors = []
         for docName in self.docs.keys():
-            names.append(self.docs[docName].name)
             vectors.append(self.pysvmVector(self.docs[docName]))
-        return (names,vectors)
+        return vectors
 
     def pysvmVectorFromString(self, string, name='noName'):
         return self.pysvmVector(document(name, self.tok.tokenize(string), **self.params))
@@ -108,7 +121,8 @@ class Vectors:
         return self.pysvmVectorFromString(docString,name=filename)
 
     def printVector(self, docName):
-        print self.vectorString(self.docs[docName])
+        s = self.vectorString(self.docs[docName])
+        print s
     
     def printAllVectors(self):
         for docName in self.docs.keys():

@@ -1,16 +1,7 @@
-import svmlight
+import svmlight as svm
 import sys
 import os
 from text2vec import Vectors
-
-class Datum:
-    def __init__(self, name, label, features):
-        self.label = label # an int, 1 or -1
-        self.features = features # [(int index, float value),...]
-        self.name = name # string
-
-    def dataTuple(self):
-        return (self.label,self.features)
 
 ## {{{ http://code.activestate.com/recipes/521906/ (r3)
 def splitIntoFolds(X, K, randomise=False):
@@ -38,7 +29,7 @@ def string2pysvmVector(string):
     for feature in string[1:]:
         index, value = feature.split(':')
         features.append((int(index),float(value)))
-    return Datum(name, label, features)
+    return (name, label, features)
 
 def readVectorFile(filename):
     infile = open(filename)
@@ -48,21 +39,42 @@ def readVectorFile(filename):
 
 def trainAndTest(training, test):
     #trainingNames = [x[0] for x in training] # never used, but might be someday
-    trainingData = [d.dataTuple() for d in training]
-    testNames = [d.name for d in test]
-    testData = [d.dataTuple() for d in test]
-    testLabels = [d.label for d in test]
+    trainingData = [(d[1],d[2]) for d in training]
+
+    testNames = [d[0] for d in test]
+    testData = [(d[1],d[2]) for d in test]
+    testLabels = [d[1] for d in test]
     
-    model = svmlight.learn(trainingData)
-    predictions = svmlight.classify(model,testData)
+    model = svm.learn(trainingData)
+    predictions = svm.classify(model,testData)
     return zip(predictions, testLabels, testNames)
 
 def kFoldTrainAndTest(docs, k):
     results = []
+    combinedResult = []
     for training, test in splitIntoFolds(docs, k):
-        results.append(trainAndTest(training, test))
-    return results
+        result = trainAndTest(training,test)
+        results.append(result)
+        for i in xrange(len(result)):
+            combinedResult.append(result[i])
 
+
+    print '**************************************'
+    print '            PERFORMANCE'
+    print '**************************************'
+    print ' Overall:'
+    printSummary(combinedResult)
+
+    outfile = open('output-details','w')
+    for i, result in enumerate(results):
+        print '=========== Fold ' + str(i) + ' ==========='
+        printSummary(result)
+
+        print >>outfile,'=========== Fold ' + str(i) + ' ==========='
+        printDetailsToFile(outfile,result)
+    outfile.close()
+
+    return results
 
 def truePositive(predicted, truth):
     return predicted > 0 and truth > 0
@@ -73,7 +85,7 @@ def falsePositive(predicted, truth):
 def falseNegative(predicted, truth):
     return predicted < 0 and truth > 0
 
-def summarizeFold(result):
+def summarize(result):
     # result is a list of docs
     # doc is a triple: (predicted, true label, filename)
     truePositives = [doc[2] for doc in result if truePositive(doc[0],doc[1])]
@@ -102,42 +114,15 @@ def sign(number):
 def mean(l):
     return float(sum(l)) / float(len(l))
 
-def printSummary(results):
-    k = len(results)
-    summaries = [summarizeFold(x) for x in results]
-    recalls = [recall(summary) for summary in summaries]
-    precisions = [precision(summary) for summary in summaries]
-    totalTP = sum([len(summary[0]) for summary in summaries])
-    totalFP = sum([len(summary[1]) for summary in summaries])
-    totalFN = sum([len(summary[2]) for summary in summaries])
+def printSummary(result):
+    summary = summarize(result)
+    print '  P:', 
+    print precision(summary),
+    print '(' + str(len(summary[0])) + '/' + str(len(summary[0]) + len(summary[1])) + ')'
+    print '  R:',
+    print recall(summary),
+    print '(' + str(len(summary[0])) + '/' + str(len(summary[0]) + len(summary[2])) + ')'
 
-    outfile = open('output-details','w')
-    
-
-    print '*******************************************'
-    print ' PERFORMANCE '
-    print '*******************************************'
-    print ' Overall       P:', 
-    print mean(precisions),
-    print '(' + str(totalTP) + '/' + str(totalTP + totalFP) + ')'
-    print '               R:',
-    print mean(recalls),
-    print '(' + str(totalTP) + '/' + str(totalTP + totalFN) + ')'
-    print '==========================================='
-    
-    for i,summary in enumerate(summaries):
-        print ' Fold ' + str(i) + ':       P:',
-        print precisions[i],
-        print '(' + str(len(summary[0])) + '/' + str(len(summary[0]) + len(summary[1])) + ')'
-        print '               R:',
-        print recalls[i],
-        print '(' + str(len(summary[0])) + '/' + str(len(summary[0]) + len(summary[2])) + ')'
-        print '-------------------------------------------'
-        
-        print >>outfile, '================ Fold ' + str(i) + ' ================'
-        printDetailsToFile(outfile, results[i])
-
-    outfile.close()
 
 def printDetailsToFile(outfile, result):
     for resultDoc in result:
