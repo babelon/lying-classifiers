@@ -2,6 +2,7 @@ import sys
 import re
 import cPickle as pickle
 from tok import Tokenizer #insert your favorite tokenizer here
+import nltk
 
 class Vectors:
     # A set of text docs and an ordered list of features
@@ -21,6 +22,7 @@ class Vectors:
         self.params['ngramOrder'] = 3
         self.params['posCat'] = '^d_'
         self.params['negCat'] = '^t_'
+        self.params['posgramOrder'] = 0
 
         # read user-specified args
         for arg in kwargs:
@@ -158,10 +160,27 @@ class document:
     def __init__(self, docName, docTokens, **kwargs):
         self.name = docName
         self.features = dict() #features->floats
-        if kwargs['ngramOrder'] > 0:
-            for i in xrange(kwargs['ngramOrder']):
-                self.addFeatures(self.grams(docTokens,i+1))
+        for i in xrange(kwargs['ngramOrder']):
+            self.addFeatures(self.grams(docTokens,i+1))
 
+        if kwargs['posgramOrder'] > 0:
+            tags = [x[1] for x in nltk.pos_tag(docTokens)]
+            for i in xrange(kwargs['posgramOrder']):
+                self.addFeatures(self.grams(tags,i+1))
+
+        self.addRatingFeature(docName)
+
+    def addRatingFeature(self, docName):
+        if '_r1' in docName:
+            self.addFeatures({'RATING':1})
+        if '_r2' in docName:
+            self.addFeatures({'RATING':2})
+        if '_r3' in docName:
+            self.addFeatures({'RATING':3})
+        if '_r4' in docName:
+            self.addFeatures({'RATING':4})
+        if '_r5' in docName:
+            self.addFeatures({'RATING':5})
 
     def getFeatureValue(self, feature):
         if feature in self.features:
@@ -177,8 +196,9 @@ class document:
     def getFeatureSet(self):
         return self.features.keys()
 
-        
+    
     def addFeatures(self, features):
+        """Take a dict of feature:value pairs and add those features."""
         for f in features:
             if f in self.features:
                 self.features[f] += features[f]
