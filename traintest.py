@@ -2,7 +2,7 @@
 
 import sys
 import os
-import SVMTrainTest
+import ClassifierTrainTest
 import produceVectors
 from text2vec import Vectors
 import argparse
@@ -26,7 +26,7 @@ posgramOrder = vars(args)['posgramOrder']
 outdir = vars(args)['outputVectors']
 indir = vars(args)['vectors']
 testdir = vars(args)['test']
-SVMTrainTest.pivot = vars(args)['cutoff']
+ClassifierTrainTest.pivot = vars(args)['cutoff']
 
 if not pathname[-1] == '/':
     pathname += '/'
@@ -44,7 +44,7 @@ if not outdir == '':
     produceVectors.makeVectorsFromFiles(pathname, outdir, **params)
     pathname = outdir
     files = os.listdir(pathname)
-    vectors = [SVMTrainTest.readVectorFile(pathname+f) for f in files]
+    vectors = [ClassifierTrainTest.readVectorFile(pathname+f) for f in files]
 
 elif not indir == '':
     if not indir[-1] == '/':
@@ -52,7 +52,7 @@ elif not indir == '':
 
     pathname = indir
     files = os.listdir(pathname)
-    vectors = [SVMTrainTest.readVectorFile(pathname+f) for f in files]
+    vectors = [ClassifierTrainTest.readVectorFile(pathname+f) for f in files]
 
 else:
     v = Vectors(**params)
@@ -79,12 +79,12 @@ if not testdir == '':
         docString = open(testdir+filename).read()
         testvecs.append(v.pysvmVectorFromString(docString,name=filename))
 
-    result = SVMTrainTest.trainAndTest(vectors, testvecs)
-    SVMTrainTest.printSummary(result)
+    result = ClassifierTrainTest.trainAndTest(vectors, testvecs)
+    ClassifierTrainTest.printSummary(result)
     outfile = open('output-details','w')
-    SVMTrainTest.printDetailsToFile(outfile,result)
+    ClassifierTrainTest.printDetailsToFile(outfile,result)
     outfile.close()
     
     
 else:
-    results = SVMTrainTest.kFoldTrainAndTest(vectors, howManyFolds)
+    results = ClassifierTrainTest.kFoldTrainAndTest(vectors, howManyFolds)
