@@ -3,6 +3,8 @@ import sys
 import os
 from text2vec import Vectors
 
+pivot = 0
+    
 ## {{{ http://code.activestate.com/recipes/521906/ (r3)
 def splitIntoFolds(X, K, randomise=False):
     """Generates K (training, validation) pairs from the items in X.
@@ -77,13 +79,13 @@ def kFoldTrainAndTest(docs, k):
     return results
 
 def truePositive(predicted, truth):
-    return predicted > 0 and truth > 0
+    return predicted > pivot and truth > 0
 
 def falsePositive(predicted, truth):
-    return predicted > 0 and truth < 0
+    return predicted > pivot and truth < 0
 
 def falseNegative(predicted, truth):
-    return predicted < 0 and truth > 0
+    return predicted < pivot and truth > 0
 
 def summarize(result):
     # result is a list of docs
@@ -116,6 +118,7 @@ def mean(l):
 
 def printSummary(result):
     summary = summarize(result)
+    print '  n=',str(len(result))
     print '  P:', 
     print precision(summary),
     print '(' + str(len(summary[0])) + '/' + str(len(summary[0]) + len(summary[1])) + ')'

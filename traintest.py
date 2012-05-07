@@ -15,6 +15,7 @@ parser.add_argument('-p','--posgramOrder',type=int,default=0,help='ngram order, 
 parser.add_argument('-o','--outputVectors',type=str,default='',help='directory to Output vector representations of documents into. By default, vectors are not printed.',action='store')
 parser.add_argument('-v','--vectors',type=str,default='',help='directory of vectors to read. If no directory is selected, vectors will be generated from text files in [DIR].',action='store')
 parser.add_argument('-t','--test',type=str,default='',help='directory of documents for testing.',action='store')
+parser.add_argument('-c','--cutoff',type=float,default=0,help='cutoff value for classification as fake',action='store')
 
 # Main
 args = parser.parse_args()
@@ -25,6 +26,7 @@ posgramOrder = vars(args)['posgramOrder']
 outdir = vars(args)['outputVectors']
 indir = vars(args)['vectors']
 testdir = vars(args)['test']
+SVMTrainTest.pivot = vars(args)['cutoff']
 
 if not pathname[-1] == '/':
     pathname += '/'
