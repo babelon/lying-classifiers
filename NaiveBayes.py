@@ -1,11 +1,14 @@
 from collections import Counter 
-from math import log
+from numpy import log
+
+print "Warning! Naive Bayes classifier doesn't work properly yet!"
 
 class NaiveBayesModel:
     def __init__(self):
         self.classes = dict() #class (1 or -1) -> ClassModel
         self.classes[1] = ClassModel()
         self.classes[-1] = ClassModel()
+        self.allfeatures = set()
     
     def getPrior(self, c):
         priorCount = self.classes[c].priorCount
@@ -27,6 +30,12 @@ class NaiveBayesModel:
 
     def addFeature(self, c, feature, val=1):
         self.classes[c].addFeature(feature,val)
+        self.allfeatures.add(feature)
+
+    def smooth(self, smoothing, **kwargs): #smoothing returns a (features,norm) tuple.
+        for c in self.classes:
+            self.classes[c].featureCounts, self.classes[c].featureNorm = smoothing(self.allfeatures, self.classes[c].featureCounts, self.classes[c].featureNorm, **kwargs)
+
 
 class ClassModel:
 
@@ -39,11 +48,22 @@ class ClassModel:
         self.featureCounts[feature] += val
         self.featureNorm += val
 
+def AdditiveSmoothing(featureSpace, featureCounts, featureNorm, **kwargs):
+    if 'k' not in kwargs:
+        k = .1
+    else: k = kwargs['k']
+    for f in featureSpace:
+        featureCounts[f] += k
+        featureNorm += k
+    return featureCounts, featureNorm
+
+
 def learn(data):
     """Learn from training examples and output a Model."""
     model = NaiveBayesModel()
     for doc in data:
         learnDocument(model, doc)
+    model.smooth(AdditiveSmoothing,k=.1)
     return model
 
 def learnDocument(model, doc):
@@ -59,8 +79,8 @@ def classify(model, data):
 def classifyDocument(model, doc):
     results = []
     for c in model.classes:
-        result = -1*-model.getPrior(c) #prior
-        result += -1*-sum(likelihoods(model,doc[1],c))
+        result = -1*model.getPrior(c) #prior
+        result += -1*sum(likelihoods(model,doc[1],c))
         result *= int(c) #mark class
         results.append(result)
     return results[argmin([abs(x) for x in results])]
@@ -72,12 +92,5 @@ def argmax(x):
     return x.index(max(x))
 
 def likelihoods(model, features, c):
-    modelFeatures = model.getFeatures(c)
-    probs = [modelFeatures[f]+log(val) for f,val in features]
-    print probs
-    return normalize(probs)
+    return (model.getFeature(c,f)*log(val) for f,val in features)
 
-def normalize(probs):
-    norm = float(sum(probs))
-    if norm == 0: norm = 1
-    return [x/norm for x in probs]

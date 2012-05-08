@@ -17,6 +17,7 @@ parser.add_argument('-v','--vectors',type=str,default='',help='directory of vect
 parser.add_argument('-t','--test',type=str,default='',help='directory of documents for testing.',action='store')
 parser.add_argument('-c','--cutoff',type=float,default=0,help='cutoff value for classification as fake',action='store')
 parser.add_argument('-b','--balanced',type=bool,default=True,help='whether categories in folds should be balanced',action='store')
+parser.add_argument('-C','--classifier',type=str,default='svm',help='what kind of classifier to use, ie svm or nb',action='store')
 
 # Main
 args = parser.parse_args()
@@ -29,6 +30,9 @@ indir = vars(args)['vectors']
 testdir = vars(args)['test']
 balanced = vars(args)['balanced']
 ClassifierTrainTest.pivot = vars(args)['cutoff']
+if vars(args)['classifier'] == 'nb':
+    import NaiveBayes as nb
+    ClassifierTrainTest.setClassifier(nb)
 
 if not pathname[-1] == '/':
     pathname += '/'
