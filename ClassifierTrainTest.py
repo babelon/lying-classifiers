@@ -56,14 +56,30 @@ def trainAndTest(training, test):
     
     return zip(predictions, testLabels, testNames)
 
-def kFoldTrainAndTest(docs, k):
+def kFoldTrainAndTest(docs, k, balanced=True):
     results = []
     combinedResult = []
-    for training, test in splitIntoFolds(docs, k):
+    folds = []
+    if not balanced:
+        folds = splitIntoFolds(docs,k)
+    if balanced:
+        posDocs = [d for d in docs if d[1]==1]
+        negDocs = [d for d in docs if d[1]==-1]
+        posFolds = [(train,test) for train,test in splitIntoFolds(posDocs,k)]
+        negFolds = [(train,test) for train,test in splitIntoFolds(negDocs,k)]
+        for i,fold in enumerate(posFolds):
+            train = fold[0]
+            train.extend(negFolds[i][0])
+            test = fold[1]
+            test.extend(negFolds[i][1])
+            folds.append((train,test))
+            
+    for training, test in folds:
         result = trainAndTest(training,test)
         results.append(result)
         for i in xrange(len(result)):
             combinedResult.append(result[i])
+        
 
 
     print '**************************************'
@@ -81,7 +97,7 @@ def kFoldTrainAndTest(docs, k):
         printDetailsToFile(outfile,result)
     outfile.close()
 
-    return results
+    return combinedResult
 
 def truePositive(predicted, truth):
     return predicted > pivot and truth > 0
@@ -104,10 +120,14 @@ def summarize(result):
     return (truePositives, falsePositives, falseNegatives)
 
 def precision(summary):
-    return float(len(summary[0])) / float((len(summary[0]) + len(summary[1])))
+    norm = float(len(summary[0]) + len(summary[1]))
+    if norm == 0: norm = 0.0000001
+    return len(summary[0]) / norm
 
 def recall(summary):
-    return float(len(summary[0])) / float((len(summary[0]) + len(summary[2])))
+    norm = float(len(summary[0]) + len(summary[2]))
+    if norm == 0: norm = 0.0000001
+    return len(summary[0]) / norm
 
 def removeSign(number):
     return sign(number) * number
