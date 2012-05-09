@@ -18,6 +18,7 @@ parser.add_argument('-t','--test',type=str,default='',help='directory of documen
 parser.add_argument('-c','--cutoff',type=float,default=0,help='cutoff value for classification as fake',action='store')
 parser.add_argument('-b','--balanced',type=bool,default=True,help='whether categories in folds should be balanced',action='store')
 parser.add_argument('-C','--classifier',type=str,default='svm',help='what kind of classifier to use, ie svm or nb',action='store')
+parser.add_argument('-K','--addK',type=float,default=.1,help='Value of K for add-K smoothing of NB classifier.',action='store')
 
 # Main
 args = parser.parse_args()
@@ -29,10 +30,13 @@ outdir = vars(args)['outputVectors']
 indir = vars(args)['vectors']
 testdir = vars(args)['test']
 balanced = vars(args)['balanced']
+addK = vars(args)['addK']
 ClassifierTrainTest.pivot = vars(args)['cutoff']
 if vars(args)['classifier'] == 'nb':
     import NaiveBayes as nb
+    nb.addK = addK
     ClassifierTrainTest.setClassifier(nb)
+    
 
 if not pathname[-1] == '/':
     pathname += '/'

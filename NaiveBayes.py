@@ -1,14 +1,15 @@
 from collections import Counter 
 from numpy import log
+addK = .1
 
-print "Warning! Naive Bayes classifier doesn't work properly yet!"
+#print "Warning! Naive Bayes classifier doesn't work properly yet!"
 
 class NaiveBayesModel:
     def __init__(self):
         self.classes = dict() #class (1 or -1) -> ClassModel
         self.classes[1] = ClassModel()
         self.classes[-1] = ClassModel()
-        self.allfeatures = set()
+        self.featureSpace = set()
     
     def getPrior(self, c):
         priorCount = self.classes[c].priorCount
@@ -30,15 +31,14 @@ class NaiveBayesModel:
 
     def addFeature(self, c, feature, val=1):
         self.classes[c].addFeature(feature,val)
-        self.allfeatures.add(feature)
+        self.featureSpace.add(feature)
 
     def smooth(self, smoothing, **kwargs): #smoothing returns a (features,norm) tuple.
         for c in self.classes:
-            self.classes[c].featureCounts, self.classes[c].featureNorm = smoothing(self.allfeatures, self.classes[c].featureCounts, self.classes[c].featureNorm, **kwargs)
+            self.classes[c].featureCounts, self.classes[c].featureNorm = smoothing(self.featureSpace, self.classes[c].featureCounts, self.classes[c].featureNorm, **kwargs)
 
 
 class ClassModel:
-
     def __init__(self):
         self.priorCount = 0
         self.featureCounts = Counter()
@@ -63,7 +63,8 @@ def learn(data):
     model = NaiveBayesModel()
     for doc in data:
         learnDocument(model, doc)
-    model.smooth(AdditiveSmoothing,k=.1)
+    k = global globalK
+    model.smooth(AdditiveSmoothing,k=addK)
     return model
 
 def learnDocument(model, doc):
@@ -92,5 +93,5 @@ def argmax(x):
     return x.index(max(x))
 
 def likelihoods(model, features, c):
-    return (model.getFeature(c,f)*log(val) for f,val in features)
+    return (model.getFeature(c,f)*log(val) for f,val in features if f in model.featureSpace)
 
