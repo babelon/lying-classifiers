@@ -9,13 +9,13 @@ def makeVectorsFromFiles(pathname, outdir, **params):
         docFile = open(pathname+docName,'r')
         docText = docFile.read()
         if len(docText) > 0:
-            v.addDoc(docName,docText)
+            v.addText(docText,docName)
         docFile.close()
             
     if not os.path.exists(outdir):
         os.makedirs(outdir)
                 
-    for docName in v.docs.keys():
+    for docName in v.docs:
         outfile = open(outdir+docName,'w')
         print >>outfile, v.vectorString(v.docs[docName])
         outfile.close()

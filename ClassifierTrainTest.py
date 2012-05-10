@@ -26,35 +26,31 @@ def setClassifier(x):
     global classifier
     classifier = x
 
-def string2pysvmVector(string):
-    string = [s.strip() for s in string.split('#')]
-    name = string[1].strip()
-    string = string[0].split(' ')
-    label = int(string[0])
-    features = []
-    for feature in string[1:]:
-        index, value = feature.split(':')
-        features.append((int(index),float(value)))
-    return (name, label, features)
-
-def readVectorFile(filename):
-    infile = open(filename)
-    toReturn = string2pysvmVector(infile.read())
-    infile.close()
-    return toReturn
-
 def trainAndTest(training, test):
     #trainingNames = [x[0] for x in training] # never used, but might be someday
-    trainingData = [(d[1],d[2]) for d in training]
+    trainingData, testNames, testData, testLabels = prepareVectors(training, test)
 
-    testNames = [d[0] for d in test]
-    testData = [(d[1],d[2]) for d in test]
-    testLabels = [d[1] for d in test]
+    if classifier.__name__ == 'svmlight':
+        trainingData = [(d[1],d[2]) for d in training]
+        testNames = [d[0] for d in test]
+        testData = [(d[1],d[2]) for d in test]
+        testLabels = [d[1] for d in test]
 
-    model = classifier.learn(trainingData)
-    predictions = classifier.classify(model,testData)
+        model = classifier.learn(trainingData)
+        predictions = classifier.classify(model,testData)
+        return zip(predictions, testLabels, testNames)
+
+    else: # otherwise, assume it's an nltk classifier
+        trainingData = {(d.features,d.cat) for f in training}
+        testNames = [d.name for d in test]
+        testData = [(d.features,d.cat) for d in test]
+        testLabels = [d.cat for d in test]
+
+        model = classifier(trainingData)
+        predictions = classifier.classify(testData)
+        return zip(predictions, testLabels, testNames)
+
     
-    return zip(predictions, testLabels, testNames)
 
 def kFoldTrainAndTest(docs, k, balanced=True):
     results = []
@@ -63,8 +59,15 @@ def kFoldTrainAndTest(docs, k, balanced=True):
     if not balanced:
         folds = splitIntoFolds(docs,k)
     if balanced:
-        posDocs = [d for d in docs if d[1]==1]
-        negDocs = [d for d in docs if d[1]==-1]
+        posDocs = []
+        negDocs = []
+        if classifier.__name__=='svmlight':
+            posDocs = [d for d in docs if d[0]==1]
+            negDocs = [d for d in docs if d[0]==-1]
+        else:
+            posDocs = [d for d in docs if d.cat==1]
+            negDocs = [d for d in docs if d.cat==-1]
+
         posFolds = [(train,test) for train,test in splitIntoFolds(posDocs,k)]
         negFolds = [(train,test) for train,test in splitIntoFolds(negDocs,k)]
         for i,fold in enumerate(posFolds):

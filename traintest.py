@@ -7,6 +7,34 @@ import produceVectors
 from text2vec import Vectors
 import argparse
 
+def readVectorFile(filename, v):
+    infile = open(filename)
+    if ClassifierTrainTest.classifier.__name__ == 'svmlight':
+        toReturn = v.string2pysvmVector(infile.read())
+    else:
+        toReturn = v.string2nltkVector(infile.read())
+    infile.close()
+    return toReturn
+
+def readVectorDir(pathname):
+    if pathname[-1] is not '/':
+        pathname += '/'
+
+    v = Vectors()
+    v.loadFeatures('dat.features')
+
+    files = os.listdir(pathname)
+    vectors = [readVectorFile(pathname+f, v) for f in files]
+
+def getVectors(v):
+    if ClassifierTrainTest.classifier.__name__ == 'svmlight':
+        return v.allPysvmVectors()
+    else: 
+        return v.allDocs()
+
+
+
+
 parser = argparse.ArgumentParser(description='k-fold cross validation of SVM classification of text files')
 parser.add_argument('dir',type=str,default='dbyank/',help='directory with training data',action='store')
 parser.add_argument('-k','--folds',type=int,default=5,help='number of folds for number of folds for cross-validation, default 5',action='store')
@@ -36,33 +64,26 @@ if vars(args)['classifier'] == 'nb':
     import NaiveBayes as nb
     nb.addK = addK
     ClassifierTrainTest.setClassifier(nb)
-    
+
 
 if not pathname[-1] == '/':
     pathname += '/'
 
 
-###### CONVERT FILES TO FEATURE VECTORS ######                                 
+###### CONVERT TEXT FILES TO FEATURE VECTORS ######                                 
 params = dict()
 params['ngramOrder'] = ngramOrder
 params['posgramOrder'] = posgramOrder
 vectors = []
-if not outdir == '':
+if not outdir == '': # If a vector-output directory was specified
     if not outdir[-1] == '/':
         outdir += '/'
 
     produceVectors.makeVectorsFromFiles(pathname, outdir, **params)
-    pathname = outdir
-    files = os.listdir(pathname)
-    vectors = [ClassifierTrainTest.readVectorFile(pathname+f) for f in files]
+    vectors = readVectorDir(pathname)
 
-elif not indir == '':
-    if not indir[-1] == '/':
-        indir += '/'
-
-    pathname = indir
-    files = os.listdir(pathname)
-    vectors = [ClassifierTrainTest.readVectorFile(pathname+f) for f in files]
+elif not indir == '': # If already-produced vector files were specified
+    vectors = readVectorDir(pathname)
 
 else:
     v = Vectors(**params)
@@ -70,27 +91,33 @@ else:
         docFile = open(pathname+docName,'r')
         docText = docFile.read()
         if len(docText) > 0:
-            v.addDoc(docName,docText)
+            v.addText(docText,docName)
         docFile.close()
-
-    vectors = v.allPysvmVectors()
     v.saveFeatures()
+
+    vectors = getVectors(v)
+
 
 ###### TRAIN & TEST AN SVM #####
 
-if not testdir == '':    
-    if not testdir[-1] == '/':
+if not testdir == '':   # If test documents specified
+    if testdir[-1] is not '/':
         testdir += '/'
 
     v = Vectors(**params)
     v.loadFeatures('dat.features')
-    testvecs = []
-    for filename in os.listdir(testdir):
-        docString = open(testdir+filename).read()
-        testvecs.append(v.pysvmVectorFromString(docString,name=filename))
+    testdocs = []
+    if ClassifierTrainTest.classifier.__name__ == 'svmlight':
+        for docName in os.listdir(pathname):
+            testdocs.append(v.file2pysvm(pathname+docName))
+    else:
+        for docName in os.listdir(pathname):
+            testdocs.append(v.file2doc(pathname+docName))
+        
 
-    result = ClassifierTrainTest.trainAndTest(vectors, testvecs)
+    result = ClassifierTrainTest.trainAndTest(vectors, testdocs)
     ClassifierTrainTest.printSummary(result)
+
     outfile = open('output-details','w')
     ClassifierTrainTest.printDetailsToFile(outfile,result)
     outfile.close()
