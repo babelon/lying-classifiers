@@ -1,7 +1,5 @@
-import svmlight as classifier
 import sys
 import os
-from text2vec import Vectors
 
 pivot = 0
     
@@ -28,29 +26,25 @@ def setClassifier(x):
 
 def trainAndTest(training, test):
     #trainingNames = [x[0] for x in training] # never used, but might be someday
-    trainingData, testNames, testData, testLabels = prepareVectors(training, test)
+
+    trainingData = [(d.features,d.cat) for d in training]
+    testNames = [d.name for d in test]
+    testData = [(d.features,d.cat) for d in test]
+    testLabels = [d.cat for d in test]
 
     if classifier.__name__ == 'svmlight':
-        trainingData = [(d[1],d[2]) for d in training]
-        testNames = [d[0] for d in test]
-        testData = [(d[1],d[2]) for d in test]
-        testLabels = [d[1] for d in test]
-
-        model = classifier.learn(trainingData)
-        predictions = classifier.classify(model,testData)
-        return zip(predictions, testLabels, testNames)
-
-    else: # otherwise, assume it's an nltk classifier
-        trainingData = {(d.features,d.cat) for f in training}
-        testNames = [d.name for d in test]
-        testData = [(d.features,d.cat) for d in test]
-        testLabels = [d.cat for d in test]
-
-        model = classifier(trainingData)
-        predictions = classifier.classify(testData)
-        return zip(predictions, testLabels, testNames)
-
+        (trainingData, testData) = convertToPysvm((trainingData, testData))
     
+        model = classifier.learn(trainingData)
+        predictions = classifier.classify(model, testData)
+        return zip(predictions, testLabels, testNames)
+
+    else:
+        model = classifier.train(trainingData)
+        predictions = [model.prob_classify(t[0]).max() for t in testData]
+        return zip(predictions, testLabels, testNames)
+
+
 
 def kFoldTrainAndTest(docs, k, balanced=True):
     results = []
@@ -59,15 +53,8 @@ def kFoldTrainAndTest(docs, k, balanced=True):
     if not balanced:
         folds = splitIntoFolds(docs,k)
     if balanced:
-        posDocs = []
-        negDocs = []
-        if classifier.__name__=='svmlight':
-            posDocs = [d for d in docs if d[0]==1]
-            negDocs = [d for d in docs if d[0]==-1]
-        else:
-            posDocs = [d for d in docs if d.cat==1]
-            negDocs = [d for d in docs if d.cat==-1]
-
+        posDocs = [d for d in docs if d.cat==1]
+        negDocs = [d for d in docs if d.cat==-1]
         posFolds = [(train,test) for train,test in splitIntoFolds(posDocs,k)]
         negFolds = [(train,test) for train,test in splitIntoFolds(negDocs,k)]
         for i,fold in enumerate(posFolds):
@@ -168,4 +155,52 @@ def printDetailsToFile(outfile, result):
             print >>outfile, 'fn'
         else:
             print >>outfile, 'tn'
+    
+
+
+
+
+
+def convertToPysvm(dtuple):
+    features = set()
+    for docs in dtuple: # training and test
+        for d in docs: # a (features,cat) tuple
+            for f in d[0]: # a key in features
+                features.add(f)
+    featureIndices = {f : i for i, f in enumerate(features)}
+    toReturn = []
+    for docs in dtuple: # training and test
+        data = [] 
+        for d in docs: # a (features,cat) tuple
+            data.append((d[1],makePysvmVector(d[0],featureIndices)))
+        toReturn.append(data)
+    return tuple(toReturn)
+
+def makePysvmVector(features, featureIndices):
+    toReturn = []
+    docFeatureIndices = []
+    docFeatureValues = dict()
+    for f in features:
+        docFeatureIndices.append(featureIndices[f])
+        docFeatureValues[featureIndices[f]] = features[f]
+    for i in qsort(docFeatureIndices):
+        toReturn.append((i,docFeatureValues[i]))
+    return toReturn
+
+
+def qsort(l):
+    """                                                                                                                                   
+    Quicksort using list comprehensions                                                                                                   
+    >>> qsort1<<docstring test numeric input>>                                                                                            
+    <<docstring test numeric output>>                                                                                                     
+    >>> qsort1<<docstring test string input>>                                                                                             
+    <<docstring test string output>>                                                                                                      
+    """
+    if l == []:
+        return []
+    else:
+        pivot = l[0]
+        lesser = qsort([x for x in l[1:] if x < pivot])
+        greater = qsort([x for x in l[1:] if x >= pivot])
+        return lesser + [pivot] + greater
     
