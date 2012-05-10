@@ -31,12 +31,13 @@ outfilename = vars(args)['outputVectors']
 infilename = vars(args)['inputVectors']
 testdir = vars(args)['test']
 balanced = vars(args)['balanced']
-addK = vars(args)['addK']
 ClassifierTrainTest.pivot = vars(args)['cutoff']
 if vars(args)['classifier'] == 'nb':
     ClassifierTrainTest.setClassifier(nltk.NaiveBayesClassifier)
 elif vars(args)['classifier'] == 'maxent':
-    ClassifierTrainTest.setClassifier(nltk.classify.maxent.MaxentClassifier)
+    ClassifierTrainTest.setClassifier(nltk.MaxentClassifier)
+elif vars(args)['classifier'] == 'decisiontree':
+    ClassifierTrainTest.setClassifier(nltk.DecisionTreeClassifier)
 else:
     import svmlight
     ClassifierTrainTest.setClassifier(svmlight)
