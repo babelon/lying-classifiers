@@ -5,25 +5,31 @@ from tok import Tokenizer #insert your favorite tokenizer here
 import nltk
 from collections import Counter
 
-class Vectors:
-    # A set of text docs and an ordered list of features
-    # for describing those docs. 
-    # A doc is a set of features.
-    # Includes method for producing a vector of a given doc,
-    # and for adding a doc and its features to the class.
-    # Exports vectors in three formats:
-    # SVMlight String ('string'), which has ordered features
-    # PySVM Vector ('pysvmVector'), ordered features. (name,cat,[(f,val),...])
-    # NLTK Vector ('nltkVector'), unordered feature dict. ({f:val,...},cat,name)
+tok = Tokenizer()
 
-    def __init__(self, **kwargs):
-        self.docs = dict()
-        self.features = dict() # {feature:index ...}
-        self.featureIndex = 1 # SVMlight requires 1-index
-        self.tok = Tokenizer() 
+def file2doc(filename, pathname='', **kwargs):
+    infile = open(pathname+filename)
+    toReturn = string2doc(infile.read(),filename, **kwargs)
+    infile.close()
+    return toReturn
+
+def string2doc(string, name, **kwargs):
+    tokens = tok.tokenize(string)
+    return document(name, tokens, **kwargs)
+
+class document:
+    # A document representation:
+    # 1. A name, 'name'
+    # 2. A category, 'cat'
+    # 3. a dictionary of features and their values, 'features'
+    def __init__(self, docName, docTokens, **kwargs):
+
+        self.name = docName
+        self.features = dict()
+        self.cat = 0
 
         self.params = dict()
-        # defaults
+        # set defaults
         self.params['ngramOrder'] = 3
         self.params['posCat'] = '^d_'
         self.params['negCat'] = '^t_'
@@ -33,185 +39,32 @@ class Vectors:
         for arg in kwargs:
             self.params[arg] = kwargs[arg]
 
-        # compile regexes
-        self.posCatRegex = re.compile(self.params['posCat'])
-        self.negCatRegex = re.compile(self.params['negCat'])
-        
-    def addTextFile(self, filename):
-        docString = open(filename).read()
-        self.addText(docString, filename)
+        posCat = re.compile(self.params['posCat'])
+        negCat = re.compile(self.params['negCat'])
+        self.cat = self.identifyClass(docName, posCat, negCat)
 
-    def addText(self, docString, docName='noName'):
-        docTokens = self.tok.tokenize(docString)
-        self.addDoc(document(docName, docTokens, self.identifyClass(docName),**self.params))
+        if 'ngramOrder' not in self.params:
+            self.params['ngramOrder'] = 0
+        if 'posgramOrder' not in self.params:
+            self.params['posgramOrder'] = 0
 
-    def addDoc(self, doc):
-        self.docs[doc.name] = doc
-        self.addFeatures(doc)
-
-    def addFeatures(self, doc):
-        for f in doc.getFeatureSet():
-            if f not in self.features:
-                self.features[f] = self.featureIndex
-                self.featureIndex += 1
-
-    def saveFeatures(self):
-        saveFile = open('dat.features','w')
-        pickle.dump(self.features,saveFile)
-        saveFile.close()
-
-    def loadFeatures(self, filename):
-        readFile = open(filename)
-        self.features = pickle.load(readFile)
-        readFile.close()
-
-    def printFeatures(self):
-        for f in self.features:
-            print self.features[f]
-
-
-    def qsort(self, l):
-        """
-        Quicksort using list comprehensions
-        >>> qsort1<<docstring test numeric input>>
-        <<docstring test numeric output>>
-        >>> qsort1<<docstring test string input>>
-        <<docstring test string output>>
-        """
-        if l == []: 
-            return []
-        else:
-            pivot = l[0]
-            lesser = self.qsort([x for x in l[1:] if x < pivot])
-            greater = self.qsort([x for x in l[1:] if x >= pivot])
-            return lesser + [pivot] + greater
-        
-
-    def vectorString(self, doc):
-        s = ""
-        vector = self.vectorList(doc)
-        for (feature,value) in vector:
-            s += str(feature)
-            s += ":"
-            s += str(value)
-            s += " "
-        s += "# "
-        s += str(doc.name)
-
-        return doc.cat + s
-
-    def sortedVectorList(self, doc):
-        toReturn = []
-        docFeatureIndices = []
-        docFeatureValues = dict()
-        for f in doc.getFeatureSet():
-            if f in self.features:
-                docFeatureIndices.append(self.features[f])
-                docFeatureValues[self.features[f]] = doc.getFeatureValue(f)
-        for i in self.qsort(docFeatureIndices):
-            toReturn.append((i,docFeatureValues[i]))
-        return toReturn
-
-    def vectorDict(self, doc):
-        return {key:self.features[key] for key in doc.getFeatureSet() if key in self.features}
-
-    def nltkVector(self, doc):
-        vector = self.vectorDict(doc) # a dict of {feature:value}
-        return (vector,doc.cat,doc.name)
-        
-    def allNltkVectors(self):
-        return [self.nltkVector(self.docs[docName]) for docName in self.docs]
-
-    def pysvmVector(self, doc):
-        vector = self.sortedVectorList(doc) # an ordered list of (feature,value) tuples
-        return (doc.name,doc.cat,vector)
-
-    def allPysvmVectors(self):
-        return [self.pysvmVector(self.docs[docName]) for docName in self.docs]
-
-    def text2pysvmVector(self, string, name='noName'):
-        return self.pysvmVector(document(name, self.tok.tokenize(string), self.identifyClass(name),**self.params))
-
-    def file2pysvmVector(self, filename):
-        docString = open(filename).read()
-        return self.text2pysvmVector(docString,name=filename)
-
-    def printString(self, docName):
-        s = self.vectorString(self.docs[docName])
-        print s
-    
-    def printAllStrings(self):
-        for docName in self.docs.keys():
-            self.printString(docName)
-
-    def text2string(self, string, name='noName'):
-        # Convert a text string to a vector-string without adding it to the representation.
-        print self.vectorString(document(name, self.tok.tokenize(string), self.identifyClass(name), **self.params))
-
-    def file2string(self, filename):
-        # Convert text strings in a file to a vector-string, without adding features.
-        docString = open(filename).read()
-        self.text2string(docString,name=filename)
-
-    def string2pysvmVector(self, string):
-        return self.pysvmVector(self.string2doc(string))
-
-    def string2nltkVector(self, string):
-        return self.nltkVector(self.string2doc(string))
-
-    def string2doc(self, string):
-        string = [s.strip() for s in string.split('#')]
-        name = string[1].strip()
-        string = string[0].split(' ')
-        label = int(string[0])
-        features = {}
-        for feature in string[1:]:
-            index, value = feature.split(':')
-            features[self.features[int(index)]] = float(value)
-        d = document(name, [], self.identifyClass(name))
-        d.features = features
-        return d
-
-    def identifyClass(self, name):
-        if self.posCatRegex.match(name):
-            return 1
-        if self.negCatRegex.match(name):
-            return -1
-        print "Warning! Could not identify true category of " + name
-        return 0
-
-    def file2doc(self, filename):
-        docString = open(filename).read()
-        return self.string2doc(docString, filename)
-
-    def string2doc(self, docString, docName='noName'):
-        docTokens = self.tok.tokenize(docString)
-        d = document(docName, docTokens, self.identifyClass(docName),**self.params)
-        d.features = {f:d.features[f] for f in d.features if f in self.features}
-        return d
-
-    def allDocs(self):
-        return [self.docs[d] for d in docs]
-
-            
-class document:
-    # A document representation:
-    # 1. A name, 'name'
-    # 2. A category, 'cat'
-    # 3. a dictionary of features and their values, 'features'
-    def __init__(self, docName, docTokens, docClass, **kwargs):
-        self.name = docName
-        self.cat = docClass
-        self.features = dict() #features->floats
-        for i in xrange(kwargs['ngramOrder']):
+        for i in xrange(self.params['ngramOrder']):
             self.addFeatures(self.grams(docTokens,i+1))
 
-        if kwargs['posgramOrder'] > 0:
+        if self.params['posgramOrder'] > 0:
             tags = [x[1] for x in nltk.pos_tag(docTokens)]
-            for i in xrange(kwargs['posgramOrder']):
+            for i in xrange(self.params['posgramOrder']):
                 self.addFeatures(self.grams(tags,i+1))
 
         self.addRatingFeature(docName)
+
+    def identifyClass(self, name, posCat, negCat):
+        if posCat.match(name):
+            return 1
+        if negCat.match(name):
+            return -1
+        print "Warning! Could not identify true category of " + name
+        return 0
 
     def addRatingFeature(self, docName):
         if '_r1' in docName:
