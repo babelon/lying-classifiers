@@ -3,6 +3,7 @@ import re
 import cPickle as pickle
 from tok import Tokenizer #insert your favorite tokenizer here
 import nltk
+from collections import Counter
 
 class Vectors:
     # A set of text docs and an ordered list of features
@@ -10,12 +11,16 @@ class Vectors:
     # A doc is a set of features.
     # Includes method for producing a vector of a given doc,
     # and for adding a doc and its features to the class.
+    # Exports vectors in three formats:
+    # SVMlight String ('string'), which has ordered features
+    # PySVM Vector ('pysvmVector'), ordered features
+    # NLTK Vector ('nltkVector'), unordered feature dict
 
     def __init__(self, **kwargs):
         self.docs = dict()
-        self.features = dict()
-        self.featureIndex = 1
-        self.tok = Tokenizer()
+        self.features = dict() # {feature:index ...}
+        self.featureIndex = 1 # SVMlight requires 1-index
+        self.tok = Tokenizer() 
 
         self.params = dict()
         # defaults
@@ -48,9 +53,23 @@ class Vectors:
                 self.features[f] = self.featureIndex
                 self.featureIndex += 1
 
-    def reverseDict(self, m):
-        return dict((v,k) for k,v in map.iteritems())
-        
+    def saveFeatures(self):
+        saveFile = open('dat.features','w')
+        pickle.dump(self.features,saveFile)
+        saveFile.close()
+
+    def loadFeatures(self, filename):
+        readFile = open(filename)
+        self.features = pickle.load(readFile)
+        readFile.close()
+
+    def printFeatures(self):
+        for f in self.features:
+            print self.features[f]
+
+
+
+
     def qsort(self, l):
         """
         Quicksort using list comprehensions
@@ -87,8 +106,7 @@ class Vectors:
         print "Error! " + doc.name + " could not be classified as pos or neg!"
         return ''
 
-
-    def vectorList(self, doc):
+    def sortedVectorList(self, doc):
         toReturn = []
         docFeatureIndices = []
         docFeatureValues = dict()
@@ -100,57 +118,60 @@ class Vectors:
             toReturn.append((i,docFeatureValues[i]))
         return toReturn
 
+    def vectorDict(self, doc):
+        toReturn = {}
+        docFeatureKeys = []
+        docFeatureValues = dict()
+        return {key:self.features[key] for key in doc.getFeatureSet() if key in self.features}
+
+    def nltkVector(self, doc):
+        vector = self.vectorDict(doc) # a dict of {feature:value}
+        if self.posCatRegex.match(doc.name):
+            return (vector,1,doc.name)
+        if self.negCatRegex.match(doc.name):
+            return (vector,-1,doc.name)
+        print "Error! Could not determine true class for " + doc.name
+        return ()
+
+    def allNltkVectors(self):
+        return [self.nltkVector(self.docs[docName]) for docName in self.docs]
+
     def pysvmVector(self, doc):
-        vector = self.vectorList(doc) # an ordered list of (feature,value) tuples
+        vector = self.sortedVectorList(doc) # an ordered list of (feature,value) tuples
         if self.posCatRegex.match(doc.name):
             return (doc.name,1,vector)
         if self.negCatRegex.match(doc.name):
             return (doc.name,-1,vector)
-        print "Error! Could not classify " + doc.name
+        print "Error! Could not determine true class for " + doc.name
         return ()
 
     def allPysvmVectors(self):
-        vectors = []
-        for docName in self.docs.keys():
-            vectors.append(self.pysvmVector(self.docs[docName]))
-        return vectors
+        return [self.pysvmVector(self.docs[docName]) for docName in self.docs]
 
-    def pysvmVectorFromString(self, string, name='noName'):
+    def string2pysvmVector(self, string, name='noName'):
         return self.pysvmVector(document(name, self.tok.tokenize(string), **self.params))
 
-    def pysvmVectorFromFile(self, filename):
+    def file2pysvmVector(self, filename):
         docString = open(filename).read()
-        return self.pysvmVectorFromString(docString,name=filename)
+        return self.string2pysvmVector(docString,name=filename)
 
-    def printVector(self, docName):
+    def printString(self, docName):
         s = self.vectorString(self.docs[docName])
         print s
     
-    def printAllVectors(self):
+    def printAllStrings(self):
         for docName in self.docs.keys():
-            self.printVector(docName)
+            self.printString(docName)
 
-    def printFeatures(self):
-        for f in self.features:
-            print self.features[f]
-
-    def saveFeatures(self):
-        saveFile = open('dat.features','w')
-        pickle.dump(self.features,saveFile)
-        saveFile.close()
-
-    def loadFeatures(self, filename):
-        readFile = open(filename)
-        self.features = pickle.load(readFile)
-        readFile.close()
-
-    def convertString(self, string, name='noName'):
-        # Convert a string to a vector without adding it to the representation.
+    def text2string(self, string, name='noName'):
+        # Convert a text string to a vector-string without adding it to the representation.
         print self.vectorString(document(name, self.tok.tokenize(string),**self.params))
 
-    def convertFile(self, filename):
+    def file2string(self, filename):
+        # Convert text strings in a file to a vector-string, without adding features.
         docString = open(filename).read()
-        self.convertString(docString,name=filename)
+        self.text2string(docString,name=filename)
+
         
             
 class document:
@@ -208,28 +229,19 @@ class document:
 
     def grams(self, tokens, n):
         if n == 1:
-            return self.hist(tokens)
+            return Counter(tokens)
         if n == 2:
             if len(tokens) > 1:
-                return self.hist(zip(tokens[0:],tokens[1:]))
+                return Counter(zip(tokens[0:],tokens[1:]))
             else:
                 return self.grams(tokens,1)
         if n == 3:
             if len(tokens) > 2:
-                return self.hist(zip(tokens[0:],tokens[1:],tokens[2:]))
+                return Counter(zip(tokens[0:],tokens[1:],tokens[2:]))
             else:
                 return self.grams(tokens,2)
         if n == 4:
             if len(tokens) > 3:
-                return self.hist(zip(tokens[0:],tokens[1:],tokens[2:],tokens[3:]))
+                return Counter(zip(tokens[0:],tokens[1:],tokens[2:],tokens[3:]))
             else:
                 return self.grams(tokens,2)
-
-    def hist(self, l):
-        d = {}
-        for x in l:
-            if x in d:
-                d[x] += 1
-            else:
-                d[x] = 1
-        return d
