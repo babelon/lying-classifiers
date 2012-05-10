@@ -1,11 +1,16 @@
-import sys
 import re
-import cPickle as pickle
+import os
 from tok import Tokenizer #insert your favorite tokenizer here
 import nltk
 from collections import Counter
 
 tok = Tokenizer()
+
+def dir2docs(pathname, **kwargs):
+    docs = []
+    for filename in os.listdir(pathname):
+        docs.append(file2doc(filename,pathname,**kwargs))
+    return docs
 
 def file2doc(filename, pathname='', **kwargs):
     infile = open(pathname+filename)

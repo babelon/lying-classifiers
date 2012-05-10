@@ -20,7 +20,6 @@ parser.add_argument('-t','--test',type=str,default='',help='directory of documen
 parser.add_argument('-c','--cutoff',type=float,default=0,help='cutoff value for classification as fake',action='store')
 parser.add_argument('-b','--balanced',type=bool,default=True,help='whether categories in folds should be balanced',action='store')
 parser.add_argument('-C','--classifier',type=str,default='svm',help='what kind of classifier to use, ie svm or nb',action='store')
-parser.add_argument('-K','--addK',type=float,default=.1,help='Value of K for add-K smoothing of NB classifier.',action='store')
 
 # Main
 args = parser.parse_args()
@@ -63,7 +62,7 @@ else: # If no vectors file has been specified, generate from text files
 
     docs = []
     for docName in os.listdir(pathname):
-        docs.append(text2vec.file2doc(docName,pathname))
+        docs.append(text2vec.file2doc(docName,pathname,**params))
     if not outfilename == '': # if output file specified
         outfile = open(outfilename,'w')
         pickle.dump(docs,outfile)
@@ -78,7 +77,7 @@ if not testdir == '':   # If test documents specified
 
     testdocs = []
     for docName in os.listdir(testdir):
-        testdocs.append(text2vec.file2doc(docName, testdir))
+        testdocs.append(text2vec.file2doc(docName, testdir, **params))
         
 
     result = ClassifierTrainTest.trainAndTest(docs, testdocs)

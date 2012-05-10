@@ -41,7 +41,11 @@ def trainAndTest(training, test):
 
     else:
         model = classifier.train(trainingData)
-        predictions = [model.prob_classify(t[0]).max() for t in testData]
+        predictions = []
+        for t in testData:
+            p = model.prob_classify(t[0])
+            label = p.max()
+            predictions.append(label * p.prob(label))
         return zip(predictions, testLabels, testNames)
 
 
