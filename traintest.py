@@ -8,7 +8,6 @@ import text2vec
 import argparse
 import nltk
 
-
 parser = argparse.ArgumentParser(description='k-fold cross validation of SVM classification of text files')
 parser.add_argument('dir',type=str,default='dbyank/',help='directory with training data',action='store')
 parser.add_argument('-k','--folds',type=int,default=5,help='number of folds for number of folds for cross-validation, default 5',action='store')
@@ -32,12 +31,16 @@ infilename = vars(args)['inputVectors']
 testdir = vars(args)['test']
 balanced = vars(args)['balanced']
 ClassifierTrainTest.pivot = vars(args)['cutoff']
+ClassifierList = []
 if vars(args)['classifier'] == 'nb':
     ClassifierTrainTest.setClassifier(nltk.NaiveBayesClassifier)
 elif vars(args)['classifier'] == 'maxent':
     ClassifierTrainTest.setClassifier(nltk.MaxentClassifier)
 elif vars(args)['classifier'] == 'decisiontree':
     ClassifierTrainTest.setClassifier(nltk.DecisionTreeClassifier)
+elif vars(args)['classifier'] == 'all':
+    import svmlight
+    ClassifierList = [nltk.NaiveBayesClassifier,svmlight]
 else:
     import svmlight
     ClassifierTrainTest.setClassifier(svmlight)
@@ -80,8 +83,13 @@ if not testdir == '':   # If test documents specified
     for docName in os.listdir(testdir):
         testdocs.append(text2vec.file2doc(docName, testdir, **params))
         
-
-    result = ClassifierTrainTest.trainAndTest(docs, testdocs)
+    if vars(args)['classifier'] == 'all':
+        result = ClassifierTrainTest.combineResults([
+                ClassifierTrainTest.trainAndTest(docs, testdocs, classifier) 
+                for classifier in ClassifierList
+                ])
+    else:
+        result = ClassifierTrainTest.trainAndTest(docs, testdocs)
     ClassifierTrainTest.printSummary(result)
 
     outfile = open('output-details','w')
@@ -90,4 +98,13 @@ if not testdir == '':   # If test documents specified
     
     
 else:
-    results = ClassifierTrainTest.kFoldTrainAndTest(docs, howManyFolds, balanced)
+    if vars(args)['classifier'] == 'all':
+        outputs = [(ClassifierTrainTest.kFoldTrainAndTest(docs, howManyFolds, balanced, classifier))
+                   for classifier in ClassifierList]
+        results = []
+        for i in xrange(len(outputs[0][0])): # Warning: Why does this work?
+            results.append(ClassifierTrainTest.combineResults([x[0][i] for x in outputs]))
+        combinedResult = ClassifierTrainTest.combineResults([x[1] for x in outputs])
+    else:
+        results, combinedResult = ClassifierTrainTest.kFoldTrainAndTest(docs, howManyFolds, balanced)
+    ClassifierTrainTest.kFoldPrintSummary(results, combinedResult)

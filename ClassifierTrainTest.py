@@ -1,7 +1,9 @@
 import sys
 import os
+import nltk
 
 pivot = 0
+globalClassifier=nltk.NaiveBayesClassifier
     
 ## {{{ http://code.activestate.com/recipes/521906/ (r3)
 def splitIntoFolds(X, K, randomise=False):
@@ -21,10 +23,12 @@ def splitIntoFolds(X, K, randomise=False):
 ## end of http://code.activestate.com/recipes/521906/ }}}
 
 def setClassifier(x):
-    global classifier
-    classifier = x
+    global globalClassifier
+    globalClassifier = x
 
-def trainAndTest(training, test):
+def trainAndTest(training, test, classifier=None):
+    if classifier == None:
+        classifier = globalClassifier
     #trainingNames = [x[0] for x in training] # never used, but might be someday
 
     trainingData = [(d.features,d.cat) for d in training]
@@ -50,7 +54,9 @@ def trainAndTest(training, test):
 
 
 
-def kFoldTrainAndTest(docs, k, balanced=True):
+def kFoldTrainAndTest(docs, k, balanced=True, classifier=None):
+    if classifier==None:
+        classifier=globalClassifier
     results = []
     combinedResult = []
     folds = []
@@ -69,12 +75,19 @@ def kFoldTrainAndTest(docs, k, balanced=True):
             folds.append((train,test))
             
     for training, test in folds:
-        result = trainAndTest(training,test)
+        result = trainAndTest(training,test,classifier)
         results.append(result)
-        for i in xrange(len(result)):
-            combinedResult.append(result[i])
+        for resultPart in result:
+            combinedResult.append(resultPart)
+    
+    return results, combinedResult
         
+def kFoldPrintSummary(results, combinedResult=[]):
 
+    if combinedResult==[]:
+        for resultPart in result:
+            combinedResult.append(resultPart)
+        
 
     print '**************************************'
     print '            PERFORMANCE'
@@ -91,7 +104,6 @@ def kFoldTrainAndTest(docs, k, balanced=True):
         printDetailsToFile(outfile,result)
     outfile.close()
 
-    return combinedResult
 
 def truePositive(predicted, truth):
     return predicted > pivot and truth > 0
@@ -102,6 +114,30 @@ def falsePositive(predicted, truth):
 def falseNegative(predicted, truth):
     return predicted < pivot and truth > 0
 
+def combineResults(results):
+    return reduce(combineTwoResults,results)
+
+def combineTwoResults(r1, r2):
+    # result is a list of docs
+    # doc is a triple (predicted, truth, name)
+    # REQUIRES RESULTS TO BE ALIGNED.
+    if not len(r1) == len(r2):
+        print "Warning! Incommensurate sets of documents for model comparison!"
+
+    newResult = []
+    for i in xrange(len(r1)):
+        if not r1[i][2] == r2[i][2]:
+            print "Warning! Documents are not aligned for model comparison!"
+            print "Offending docs: %s, %s" % (r1[i][2], r2[i][2])
+        newResult.append((combinePredictions(r1[i][0],r2[i][0]), r1[i][1], r1[i][2]))
+    return newResult
+
+def combinePredictions(p1,p2):
+    if p1 < 0 and p2 < 0:
+        return p1 * abs(p2)
+    else:
+        return p1 * p2
+        
 def summarize(result):
     # result is a list of docs
     # doc is a triple: (predicted, true label, filename)
@@ -148,7 +184,7 @@ def printSummary(result):
 
 def printDetailsToFile(outfile, result):
     for resultDoc in result:
-        print >>outfile, removeSign(resultDoc[0]), # prediction
+        print >>outfile, resultDoc[0], # prediction
         print >>outfile, resultDoc[1], # true category
         print >>outfile, resultDoc[2], # file name
         if truePositive(resultDoc[0],resultDoc[1]):
